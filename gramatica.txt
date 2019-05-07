@@ -1,0 +1,72 @@
+/*
+ * Ejemplo con una gramatica recursiva por la izquierda y
+ * otra que elimina dicha recursividad izquierda.
+ */
+
+global
+{
+    analysis    LL1;
+    nonterminal Program, Deflist, A, Def, Vardef, Idlistdef, Idinit, Idlistdefcont, Fundef, Paramlist, Paramlistcont, Stmtlist, B, Stmt, Stmtassign, Stmtincr, Stmtdecr, Funcall, Exprlist, Exprlistcont, Stmtif, C, Stmtbreak, Stmtreturn, Stmtempty, Expr, Expror, Exprand, E, Exprcomp, F, Opcomp, Exprrel, G, Oprel, Expradd, H, Opadd, Exprmul, I, Opmul, Exprunary, Opunary, Exprprimary, Lit, Type, Idinitp, Defp, Fundefp, Stmtfor, Exprprimaryp, Stmtp, Stmtwhile, Varinit, Vardefcont, Varinitp, Stmtall, Flowcontrol, Stmtfuncall, Exprorp;
+    terminal    identifier, ifkeyword, elsekeyword, forkeyword, breakkeyword, returnkeyword, litint, litdouble, intkeyword, doublekeyword, plusplustoken, minusminustoken, barbartoken, ampersandampersandtoken, equalsequalstoken, lessthanequalstoken, greaterthanequalstoken, exclamationequalstoken, plustoken, minustoken, asterisktoken, slashtoken, percenttoken, exclamationtoken, equalstoken, whilekeyword, openparentoken, closeparentoken, commatoken, semicolontoken, openbracetoken, closebracetoken, greaterthantoken, lessthantoken;
+}
+
+/*
+ * Gramatica C Reducido
+ */
+grammar c_reducido
+{
+Program := Deflist ;
+Deflist := A ;
+A := Def A | ;
+Def := Type identifier Defp;
+Defp := Vardef semicolontoken | Fundef ;
+Fundef := openparentoken Paramlist closeparentoken Fundefp ;
+Fundefp := semicolontoken | openbracetoken Stmtlist closebracetoken ;
+Paramlist := Type identifier Paramlistcont | ;
+Paramlistcont := commatoken Type identifier Paramlistcont | ;
+Vardef := Varinit Vardefcont ;
+Varinit := Varinitp ;
+Varinitp := equalstoken Expr | ;
+Vardefcont := commatoken identifier Varinit Vardefcont | ;
+Stmtlist := B ;
+B := Stmtall B | ;
+Stmtall := Flowcontrol | Stmt semicolontoken ;
+Flowcontrol := Stmtif | Stmtwhile | Stmtfor ;
+Stmt := Type identifier Varinit Vardefcont | identifier Stmtp | Stmtbreak | Stmtreturn | Stmtempty ;
+Stmtp := Stmtassign | Stmtincr | Stmtdecr | Stmtfuncall ;
+Stmtassign := equalstoken Expr ;
+Stmtincr := plusplustoken ;
+Stmtdecr := minusminustoken ;
+Stmtbreak := breakkeyword ;
+Stmtreturn := returnkeyword Expr ;
+Stmtempty := ;
+Stmtfuncall := openparentoken Exprlist closeparentoken ;
+Exprlist := Expr Exprlistcont | ;
+Exprlistcont := commatoken Expr Exprlistcont | ;
+Stmtif := ifkeyword openparentoken Expr closeparentoken openbracetoken Stmtlist closebracetoken ;
+Stmtwhile := whilekeyword openparentoken Expr closeparentoken openbracetoken Stmtlist closebracetoken ;
+Stmtfor := forkeyword openparentoken Stmt semicolontoken Expr semicolontoken Stmt closeparentoken openbracetoken Stmtlist closebracetoken ;
+Expr := Expror ;
+Expror := Exprand Exprorp ;
+Exprorp := ;
+Exprand := Exprcomp E ;
+E := ampersandampersandtoken Exprcomp E | ;
+Exprcomp := Exprrel F ;
+F := Opcomp Exprrel F | ;
+Opcomp := equalsequalstoken | exclamationequalstoken ;
+Exprrel := Expradd G ;
+G := Oprel Expradd G | ;
+Oprel := lessthantoken | lessthanequalstoken | greaterthantoken | greaterthanequalstoken ;
+Expradd := Exprmul H ;
+H := Opadd Exprmul H | ;
+Opadd := plustoken | minustoken ;
+Exprmul := Exprunary I ;
+I := Opmul Exprunary I | ;
+Opmul := asterisktoken | slashtoken | percenttoken ;
+Exprunary := Opunary Exprunary | Exprprimary ;
+Opunary := plustoken | minustoken | exclamationtoken ;
+Exprprimary := identifier Exprprimaryp | Lit | openparentoken Expr closeparentoken ;
+Exprprimaryp := openparentoken Exprlist closeparentoken | ;
+Lit := litint | litdouble ;
+Type := intkeyword | doublekeyword ;
+}

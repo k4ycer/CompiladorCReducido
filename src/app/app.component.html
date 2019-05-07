@@ -1,2 +1,30 @@
 <h2>Enter source code:</h2>
 <input type="file" id="file-input" (change)="readFile($event)" name="Codigo fuente">
+<br><br>
+
+<h2 *ngIf="input">Entrada:</h2>
+<pre>{{ input }}</pre>
+
+<h2 *ngIf="lexicalMsgUi || syntacticMsgUi || semanticMsgUi || errorMsgUi">Mensajes:</h2>
+<div class="successMsg" *ngIf="lexicalMsgUi">{{ lexicalMsgUi }}</div>
+<div class="successMsg" *ngIf="syntacticMsgUi">{{ syntacticMsgUi }}</div>
+<div class="successMsg" *ngIf="semanticMsgUi">{{ semanticMsgUi }}</div>
+<div class="errorMsg" *ngIf="errorMsgUi">{{ errorMsgUi }}</div>
+
+<div class="symbolTable" *ngIf="symbolTableUI">
+    <h2>Tabla de simbolos</h2>
+    <table>
+        <tr>
+            <th>Type</th>
+            <th>Valex</th>
+            <th>Semantic type</th>
+            <th>Scope</th>
+        </tr>
+        <tr *ngFor="let symbol of symbolTableUI.getSymbols()">
+            <td>{{ symbol.token.typeString }}</td>
+            <td>{{ symbol.token.value }}</td>
+            <td>{{ symbol.semanticTypeString }}</td>
+            <td>{{ symbol.scope }}</td>
+        </tr>
+    </table>
+</div>

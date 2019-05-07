@@ -1,0 +1,16 @@
+.symbolTable td, .symbolTable th{
+    border: 1px solid;
+    padding: 10px;
+}
+.successMsg{
+    background-color: green;
+    color: #fff;
+    padding: 3px;
+    font-weight: bold;
+}
+.errorMsg{
+    background-color: red;
+    color: #fff;
+    padding: 3px;
+    font-weight: bold;
+}

@@ -4,6 +4,7 @@ import { Component } from '@angular/core';
 import { Token } from 'k4ycer-lexer';
 import { SyntacticAnalyzerCR } from './model/classes/SyntacticAnalyzerCR';
 import { SymbolTable } from './model/classes/SymbolTable';
+import { SemanticTypes } from './model/constants/SemanticTypes';
 
 @Component({
 	selector: 'app-root',
@@ -15,6 +16,11 @@ export class AppComponent {
 
 	lexer: LexerCR;
 	syntacticAnalyzer: SyntacticAnalyzerCR;
+	symbolTableUI: SymbolTable;
+	lexicalMsgUi: string;
+	syntacticMsgUi: string;
+	semanticMsgUi: string;
+	errorMsgUi: string;
 	public input: string;
 
 	ngOnInit(){
@@ -42,8 +48,9 @@ export class AppComponent {
 		this.lexer.setInput(input);
 		try{
 			tokens = this.lexer.tokenize();		
+			this.lexicalMsgUi = "Lexical analysis successful";
 		}catch(e){
-			console.log("Error en analizador lexico: " + e.message );
+			this.errorMsgUi = "Error en analizador lexico: " + e.message;
 			return
 		}	
 
@@ -57,11 +64,26 @@ export class AppComponent {
 
 		try{
 			this.syntacticAnalyzer.analyze();
-			console.log("Sintacticamente valido");
+
+			// Checamos que este main
+			if(!this.syntacticAnalyzer.symbolTable.getSymbols().find(s => s.token.value == "main")){
+				throw new Error("Error semantico: No se encontro la funcion main");
+			}
+
+			// Todo salio bien
+			this.syntacticMsgUi = "Syntactic analysis successful";
+			this.semanticMsgUi = "Semantic analysis successful";
 			console.log("Tabla de simbolos", this.syntacticAnalyzer.symbolTable);
+			this.showSymbolTable(this.syntacticAnalyzer.symbolTable);
 		}catch(e){
-			console.log("Error en analizador sintáctico: " + e.message );
+			this.errorMsgUi = "Error en analizador: " + e.message;
 			return;
 		}	
+	}
+
+	showSymbolTable(symbolTable: SymbolTable){
+		this.symbolTableUI = symbolTable;
+		this.symbolTableUI.getSymbols().map(symbol => symbol.semanticTypeString = SemanticTypes[symbol.semanticType]);
+		this.symbolTableUI.getSymbols().sort((a, b) => a.scope - b.scope);		
 	}
 }

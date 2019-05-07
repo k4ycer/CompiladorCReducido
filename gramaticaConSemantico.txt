@@ -1,0 +1,73 @@
+/*
+ * Ejemplo con una gramatica recursiva por la izquierda y
+ * otra que elimina dicha recursividad izquierda.
+ */
+
+global
+{
+    analysis    LL1;
+    nonterminal Program, Deflist, A, Def, Vardef, Idlistdef, Idinit, Idlistdefcont, Fundef, Paramlist, Paramlistcont, Stmtlist, B, Stmt, Stmtassign, Stmtincr, Stmtdecr, Funcall, Exprlist, Exprlistcont, Stmtif, C, Stmtbreak, Stmtreturn, Stmtempty, Expr, Expror, Exprand, E, Exprcomp, F, Opcomp, Exprrel, G, Oprel, Expradd, H, Opadd, Exprmul, I, Opmul, Exprunary, Opunary, Exprprimary, Lit, Type, Idinitp, Defp, Fundefp, Stmtfor, Exprprimaryp, Stmtp, Stmtwhile, Varinit, Vardefcont, Varinitp, Stmtall, Flowcontrol, Stmtfuncall, Exprorp;
+    terminal    identifier, IfKeyword, ElseKeyword, ForKeyword, BreakKeyword, ReturnKeyword, IntegerLiteral, DoubleLiteral, IntKeyword, DoubleKeyword, PlusPlusToken, MinusMinusToken, BarBarToken, AmpersandAmpersandToken, EqualsEqualsToken, LessThanEqualsToken, GreaterThanEqualsToken, ExclamationEqualsToken, PlusToken, MinusToken, AsteriskToken, SlashToken, PercentToken, ExclamationToken, EqualsToken, WhileKeyword, OpenParenToken, CloseParenToken, CommaToken, SemicolonToken, OpenBraceToken, CloseBraceToken, GreaterThanToken, LessThanToken;
+}
+
+/*
+ * Gramatica C Reducido
+ */
+grammar c_reducido
+{
+    Program := Deflist ;
+    Deflist := A ;
+    A := Def A | ;
+    Def := Type identifier Defp; // agregarSimbolo(new Symbol(new Token(identifier, tipo))), heredar tipo
+    Defp := Vardef SemicolonToken | Fundef ;
+    Fundef := OpenParenToken Paramlist CloseParenToken Fundefp ;
+    Fundefp := SemicolonToken | OpenBraceToken Stmtlist CloseBraceToken ;
+    Paramlist := Type identifier Paramlistcont // agregarSimbolo(new Symbol(new Token(identifier, tipo))) | ;
+    Paramlistcont := CommaToken Type identifier Paramlistcont // agregarSimbolo(new Symbol(new Token(identifier, tipo))) | ;
+    Vardef := Varinit Vardefcont ;
+    Varinit := Varinitp ;
+    Varinitp := EqualsToken Expr | ;
+    Vardefcont := CommaToken identifier Varinit Vardefcont // agregarSimbolo(new Symbol(new Token(identifier, tipo))) | ;
+    Stmtlist := B ;
+    B := Stmtall B | ;
+    Stmtall := Flowcontrol | Stmt SemicolonToken ;
+    Flowcontrol := Stmtif | Stmtwhile | Stmtfor ;
+    Stmt := Type identifier Varinit Vardefcont // agregarSimbolo(new Symbol(new Token(identifier, tipo))), heredar tipo | identifier Stmtp // getSymbol(identifier, scope) != null | Stmtbreak | Stmtreturn | Stmtempty ;
+    Stmtp := Stmtassign | Stmtincr | Stmtdecr | Stmtfuncall ;
+    Stmtassign := EqualsToken Expr ;
+    Stmtincr := PlusPlusToken ;
+    Stmtdecr := MinusminusToken ;
+    Stmtbreak := BreakKeyword ;
+    Stmtreturn := ReturnKeyword Expr ;
+    Stmtempty := ;
+    Stmtfuncall := OpenParenToken Exprlist CloseParenToken ;
+    Exprlist := Expr Exprlistcont | ;
+    Exprlistcont := CommaToken Expr Exprlistcont | ;
+    Stmtif := IfKeyword OpenParenToken Expr CloseParenToken OpenBraceToken Stmtlist CloseBraceToken ;
+    Stmtwhile := WhileKeyword OpenParenToken Expr CloseParenToken OpenBraceToken Stmtlist CloseBraceToken ;
+    Stmtfor := ForKeyword OpenParenToken Stmt SemicolonToken Expr SemicolonToken Stmt CloseParenToken OpenBraceToken Stmtlist CloseBraceToken ;
+    Expr := Expror ;
+    Expror := Exprand Exprorp ;
+    Exprorp := ;
+    Exprand := Exprcomp E ;
+    E := AmpersandAmpersandToken Exprcomp E | ;
+    Exprcomp := Exprrel F ;
+    F := Opcomp Exprrel F | ;
+    Opcomp := EqualsEqualsToken | ExclamationEqualsToken ;
+    Exprrel := Expradd G ;
+    G := Oprel Expradd G | ;
+    Oprel := LessThanToken | LessThanEqualsToken | GreaterThanToken | GreaterThanEqualsToken ;
+    Expradd := Exprmul H ;
+    H := Opadd Exprmul H | ;
+    Opadd := PlusToken | MinusToken ;
+    Exprmul := Exprunary I ;
+    I := Opmul Exprunary I | ;
+    Opmul := AsteriskToken | SlashToken | PercentToken ;
+    Exprunary := Opunary Exprunary | Exprprimary ;
+    Opunary := PlusToken | MinusToken | ExclamationToken ;
+    Exprprimary := identifier Exprprimaryp // getSymbol(identifier, scope) != null | Lit | OpenParenToken Expr CloseParenToken ;
+    Exprprimaryp := OpenParenToken Exprlist CloseParenToken | ;
+    Lit := IntegerLiteral | DoubleLiteral ;
+    Type := IntKeyword // return int
+    | DoubleKeyword // return double;
+}

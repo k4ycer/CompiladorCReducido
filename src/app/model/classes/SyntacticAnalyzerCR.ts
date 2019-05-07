@@ -6,24 +6,26 @@ import { SyntacticAnalyzer, Token } from 'k4ycer-syntactic-analyzer';
 import { IdentifierSymbol } from './Symbol';
 
 export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
-    symbolTable: SymbolTable
+    symbolTable: SymbolTable;
+    scopeCount: number;
 
     constructor(tokens: Token[], symbolTable: SymbolTable){        
         super(tokens);
         this.symbolTable = symbolTable;
+        this.scopeCount = 0;
 
-        this.setInitialRule(this.A);
+        this.setInitialRule(() => this.A(new SemanticParam({}, {scopeStack: [this.scopeCount]})));
     }
 
-    private A() {
+    private A(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.DoubleKeyword:
-                this.Def();
-                this.A();
+                this.Def(semanticParam);
+                this.A(semanticParam);
                 break;
             case TokenTypes.IntKeyword:
-                this.Def();
-                this.A();
+                this.Def(semanticParam);
+                this.A(semanticParam);
                 break;
             case TokenTypes.PesoToken:
                 return;
@@ -34,46 +36,46 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private B() {
+    private B(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.BreakKeyword:
-                this.Stmtall();
-                this.B();
+                this.Stmtall(semanticParam);
+                this.B(semanticParam);
                 break;
             case TokenTypes.CloseBraceToken:
                 return;
                 break;
             case TokenTypes.DoubleKeyword:
-                this.Stmtall();
-                this.B();
+                this.Stmtall(semanticParam);
+                this.B(semanticParam);
                 break;
             case TokenTypes.ForKeyword:
-                this.Stmtall();
-                this.B();
+                this.Stmtall(semanticParam);
+                this.B(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Stmtall();
-                this.B();
+                this.Stmtall(semanticParam);
+                this.B(semanticParam);
                 break;
             case TokenTypes.IfKeyword:
-                this.Stmtall();
-                this.B();
+                this.Stmtall(semanticParam);
+                this.B(semanticParam);
                 break;
             case TokenTypes.IntKeyword:
-                this.Stmtall();
-                this.B();
+                this.Stmtall(semanticParam);
+                this.B(semanticParam);
                 break;
             case TokenTypes.ReturnKeyword:
-                this.Stmtall();
-                this.B();
+                this.Stmtall(semanticParam);
+                this.B(semanticParam);
                 break;
             case TokenTypes.SemicolonToken:
-                this.Stmtall();
-                this.B();
+                this.Stmtall(semanticParam);
+                this.B(semanticParam);
                 break;
             case TokenTypes.WhileKeyword:
-                this.Stmtall();
-                this.B();
+                this.Stmtall(semanticParam);
+                this.B(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -81,15 +83,16 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Def() {
+    private Def(semanticParam: SemanticParam) {
         let identifier;
         let defpSynth: SemanticParam;
         switch (this.currentToken.type) {            
             case TokenTypes.DoubleKeyword:            
-                this.Type();
+                this.Type(semanticParam);
                 identifier = JSON.parse(JSON.stringify(this.currentToken));
                 this.consume(TokenTypes.Identifier);
-                defpSynth = this.Defp();                
+                semanticParam.inherited.type = SemanticTypes.Double;
+                defpSynth = this.Defp(semanticParam);                
 
                 // Semantico
                 // Si es una funcion entonces en caso de ser definida la agreamos a la tabla y en caso de ser declarada
@@ -97,27 +100,28 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 // en caso de ser una variable solo la agregamos
                 if(defpSynth){
                     if(defpSynth.synthesized.funDefined){
-                        this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double, null, true));
+                        this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1], true));
                     }else if(defpSynth.synthesized.funDeclared){
-                        let declaredSymbol = this.symbolTable.getSymbol(identifier, null);
+                        let declaredSymbol = this.symbolTable.getSymbol(identifier, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1]);
                         if(declaredSymbol){
                             if(declaredSymbol.semanticType != SemanticTypes.Double){
                                 throw new Error(`La declaracion de la funcion ${identifier.value} no coincide con su definicion`);
                             }
                         }else{
-                            this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double, null, false));
+                            this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1], false));
                         }
                     }
                 }else{
-                    this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double));
+                    this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1]));
                 }            
                 // Fin Semantico
                 break;
             case TokenTypes.IntKeyword:
-                this.Type();     
+                this.Type(semanticParam);     
                 identifier = JSON.parse(JSON.stringify(this.currentToken));           
                 this.consume(TokenTypes.Identifier);
-                defpSynth = this.Defp();                
+                semanticParam.inherited.type = SemanticTypes.Integer;
+                defpSynth = this.Defp(semanticParam);                
 
                 // Semantico
                 // Si es una funcion entonces en caso de ser definida la agreamos a la tabla y en caso de ser declarada
@@ -125,19 +129,19 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 // en caso de ser una variable solo la agregamos
                 if(defpSynth){
                     if(defpSynth.synthesized.funDefined){
-                        this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer, null, true));
+                        this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1], true));
                     }else if(defpSynth.synthesized.funDeclared){
-                        let declaredSymbol = this.symbolTable.getSymbol(identifier, null);
+                        let declaredSymbol = this.symbolTable.getSymbol(identifier, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1]);
                         if(declaredSymbol){
                             if(declaredSymbol.semanticType != SemanticTypes.Integer){
                                 throw new Error(`La declaracion de la funcion ${identifier.value} no coincide con su definicion`);
                             }
                         }else{
-                            this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer, null, false));
+                            this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1], false));
                         }
                     }
                 }else{
-                    this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer));
+                    this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1]));
                 }            
                 // Fin Semantico
                 break;
@@ -147,16 +151,16 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Deflist() {
+    private Deflist(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.DoubleKeyword:
-                this.A();
+                this.A(semanticParam);
                 break;
             case TokenTypes.IntKeyword:
-                this.A();
+                this.A(semanticParam);
                 break;
             case TokenTypes.PesoToken:
-                this.A();
+                this.A(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -164,20 +168,20 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Defp() {
+    private Defp(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.CommaToken:
-                this.Vardef();
+                this.Vardef(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             case TokenTypes.OpenParenToken:
-                return this.Fundef();
+                return this.Fundef(semanticParam);
             case TokenTypes.EqualsToken:
-                this.Vardef();
+                this.Vardef(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             case TokenTypes.SemicolonToken:
-                this.Vardef();
+                this.Vardef(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             default:
@@ -186,12 +190,12 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private E() {
+    private E(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.AmpersandAmpersandToken:
                 this.consume(TokenTypes.AmpersandAmpersandToken);
-                this.Exprcomp();
-                this.E();
+                this.Exprcomp(semanticParam);
+                this.E(semanticParam);
                 break;
             case TokenTypes.CloseParenToken:
                 return;
@@ -208,28 +212,28 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Expr() {
+    private Expr(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ExclamationToken:
-                this.Expror();
+                this.Expror(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Expror();
+                this.Expror(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Expror();
+                this.Expror(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Expror();
+                this.Expror(semanticParam);
                 break;
             case TokenTypes.MinusToken:
-                this.Expror();
+                this.Expror(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Expror();
+                this.Expror(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Expror();
+                this.Expror(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -237,35 +241,35 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Expradd() {
+    private Expradd(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ExclamationToken:
-                this.Exprmul();
-                this.H();
+                this.Exprmul(semanticParam);
+                this.H(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Exprmul();
-                this.H();
+                this.Exprmul(semanticParam);
+                this.H(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Exprmul();
-                this.H();
+                this.Exprmul(semanticParam);
+                this.H(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Exprmul();
-                this.H();
+                this.Exprmul(semanticParam);
+                this.H(semanticParam);
                 break;
             case TokenTypes.MinusToken:
-                this.Exprmul();
-                this.H();
+                this.Exprmul(semanticParam);
+                this.H(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Exprmul();
-                this.H();
+                this.Exprmul(semanticParam);
+                this.H(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Exprmul();
-                this.H();
+                this.Exprmul(semanticParam);
+                this.H(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -273,35 +277,35 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprand() {
+    private Exprand(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ExclamationToken:
-                this.Exprcomp();
-                this.E();
+                this.Exprcomp(semanticParam);
+                this.E(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Exprcomp();
-                this.E();
+                this.Exprcomp(semanticParam);
+                this.E(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Exprcomp();
-                this.E();
+                this.Exprcomp(semanticParam);
+                this.E(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Exprcomp();
-                this.E();
+                this.Exprcomp(semanticParam);
+                this.E(semanticParam);
                 break;
             case TokenTypes.MinusToken:
-                this.Exprcomp();
-                this.E();
+                this.Exprcomp(semanticParam);
+                this.E(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Exprcomp();
-                this.E();
+                this.Exprcomp(semanticParam);
+                this.E(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Exprcomp();
-                this.E();
+                this.Exprcomp(semanticParam);
+                this.E(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -309,35 +313,35 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprcomp() {
+    private Exprcomp(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ExclamationToken:
-                this.Exprrel();
-                this.F();
+                this.Exprrel(semanticParam);
+                this.F(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Exprrel();
-                this.F();
+                this.Exprrel(semanticParam);
+                this.F(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Exprrel();
-                this.F();
+                this.Exprrel(semanticParam);
+                this.F(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Exprrel();
-                this.F();
+                this.Exprrel(semanticParam);
+                this.F(semanticParam);
                 break;
             case TokenTypes.MinusToken:
-                this.Exprrel();
-                this.F();
+                this.Exprrel(semanticParam);
+                this.F(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Exprrel();
-                this.F();
+                this.Exprrel(semanticParam);
+                this.F(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Exprrel();
-                this.F();
+                this.Exprrel(semanticParam);
+                this.F(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -345,38 +349,38 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprlist() {
+    private Exprlist(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.CloseParenToken:
                 return;
                 break;
             case TokenTypes.ExclamationToken:
-                this.Expr();
-                this.Exprlistcont();
+                this.Expr(semanticParam);
+                this.Exprlistcont(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Expr();
-                this.Exprlistcont();
+                this.Expr(semanticParam);
+                this.Exprlistcont(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Expr();
-                this.Exprlistcont();
+                this.Expr(semanticParam);
+                this.Exprlistcont(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Expr();
-                this.Exprlistcont();
+                this.Expr(semanticParam);
+                this.Exprlistcont(semanticParam);
                 break;
             case TokenTypes.MinusToken:
-                this.Expr();
-                this.Exprlistcont();
+                this.Expr(semanticParam);
+                this.Exprlistcont(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Expr();
-                this.Exprlistcont();
+                this.Expr(semanticParam);
+                this.Exprlistcont(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Expr();
-                this.Exprlistcont();
+                this.Expr(semanticParam);
+                this.Exprlistcont(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -384,15 +388,15 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprlistcont() {
+    private Exprlistcont(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.CloseParenToken:
                 return;
                 break;
             case TokenTypes.CommaToken:
                 this.consume(TokenTypes.CommaToken);
-                this.Expr();
-                this.Exprlistcont();
+                this.Expr(semanticParam);
+                this.Exprlistcont(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -400,35 +404,35 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprmul() {
+    private Exprmul(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ExclamationToken:
-                this.Exprunary();
-                this.I();
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Exprunary();
-                this.I();
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Exprunary();
-                this.I();
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Exprunary();
-                this.I();
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             case TokenTypes.MinusToken:
-                this.Exprunary();
-                this.I();
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Exprunary();
-                this.I();
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Exprunary();
-                this.I();
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -436,35 +440,35 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Expror() {
+    private Expror(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ExclamationToken:
-                this.Exprand();
-                this.Exprorp();
+                this.Exprand(semanticParam);
+                this.Exprorp(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Exprand();
-                this.Exprorp();
+                this.Exprand(semanticParam);
+                this.Exprorp(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Exprand();
-                this.Exprorp();
+                this.Exprand(semanticParam);
+                this.Exprorp(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Exprand();
-                this.Exprorp();
+                this.Exprand(semanticParam);
+                this.Exprorp(semanticParam);
                 break;
             case TokenTypes.MinusToken:
-                this.Exprand();
-                this.Exprorp();
+                this.Exprand(semanticParam);
+                this.Exprorp(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Exprand();
-                this.Exprorp();
+                this.Exprand(semanticParam);
+                this.Exprorp(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Exprand();
-                this.Exprorp();
+                this.Exprand(semanticParam);
+                this.Exprorp(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -472,7 +476,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprorp() {
+    private Exprorp(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.CloseParenToken:
                 return;
@@ -489,21 +493,30 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprprimary() {
+    private Exprprimary(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.Identifier:
+                // Checamos que el identificador que vamos a usar este dentro del scope actual
+                let identifierCheck = this.symbolTable.findSymbol(this.currentToken, semanticParam.inherited.scopeStack);                    
+                if(!identifierCheck){
+                    throw new Error(`Error semantico: El identifiador ${this.currentToken.value} no existe en el ambito actual. Linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
+                }
+                if(identifierCheck.scope > semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1]){
+                    throw new Error(`Error semantico: El identifiador ${this.currentToken.value} no existe en el ambito actual. Linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
+                }
+                
                 this.consume(TokenTypes.Identifier);
-                this.Exprprimaryp();
+                this.Exprprimaryp(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Lit();
+                this.Lit(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Lit();
+                this.Lit(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
                 this.consume(TokenTypes.OpenParenToken);
-                this.Expr();
+                this.Expr(semanticParam);
                 this.consume(TokenTypes.CloseParenToken);
                 break;
             default:
@@ -512,7 +525,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprprimaryp() {
+    private Exprprimaryp(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.AmpersandAmpersandToken:
                 return;
@@ -549,7 +562,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 break;
             case TokenTypes.OpenParenToken:
                 this.consume(TokenTypes.OpenParenToken);
-                this.Exprlist();
+                this.Exprlist(semanticParam);
                 this.consume(TokenTypes.CloseParenToken);
                 break;
             case TokenTypes.PercentToken:
@@ -570,35 +583,35 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprrel() {
+    private Exprrel(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ExclamationToken:
-                this.Expradd();
-                this.G();
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Expradd();
-                this.G();
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Expradd();
-                this.G();
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Expradd();
-                this.G();
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.MinusToken:
-                this.Expradd();
-                this.G();
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Expradd();
-                this.G();
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Expradd();
-                this.G();
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -606,31 +619,31 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Exprunary() {
+    private Exprunary(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ExclamationToken:
-                this.Opunary();
-                this.Exprunary();
+                this.Opunary(semanticParam);
+                this.Exprunary(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Exprprimary();
+                this.Exprprimary(semanticParam);
                 break;
             case TokenTypes.DoubleLiteral:
-                this.Exprprimary();
+                this.Exprprimary(semanticParam);
                 break;
             case TokenTypes.IntegerLiteral:
-                this.Exprprimary();
+                this.Exprprimary(semanticParam);
                 break;
             case TokenTypes.MinusToken:
-                this.Opunary();
-                this.Exprunary();
+                this.Opunary(semanticParam);
+                this.Exprunary(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Exprprimary();
+                this.Exprprimary(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Opunary();
-                this.Exprunary();
+                this.Opunary(semanticParam);
+                this.Exprunary(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -638,7 +651,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private F() {
+    private F(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.AmpersandAmpersandToken:
                 return;
@@ -650,14 +663,14 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 return;
                 break;
             case TokenTypes.EqualsEqualsToken:
-                this.Opcomp();
-                this.Exprrel();
-                this.F();
+                this.Opcomp(semanticParam);
+                this.Exprrel(semanticParam);
+                this.F(semanticParam);
                 break;
             case TokenTypes.ExclamationEqualsToken:
-                this.Opcomp();
-                this.Exprrel();
-                this.F();
+                this.Opcomp(semanticParam);
+                this.Exprrel(semanticParam);
+                this.F(semanticParam);
                 break;
             case TokenTypes.SemicolonToken:
                 return;
@@ -668,16 +681,16 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Flowcontrol() {
+    private Flowcontrol(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ForKeyword:
-                this.Stmtfor();
+                this.Stmtfor(semanticParam);
                 break;
             case TokenTypes.IfKeyword:
-                this.Stmtif();
+                this.Stmtif(semanticParam);
                 break;
             case TokenTypes.WhileKeyword:
-                this.Stmtwhile();
+                this.Stmtwhile(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -685,14 +698,16 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Fundef() {
+    private Fundef(semanticParam: SemanticParam) {
         let fundefpSynth: SemanticParam;
         switch (this.currentToken.type) {
             case TokenTypes.OpenParenToken:
+                semanticParam.inherited.scopeStack.push(++this.scopeCount);  
                 this.consume(TokenTypes.OpenParenToken);
-                this.Paramlist();
+                this.Paramlist(semanticParam);
                 this.consume(TokenTypes.CloseParenToken);
-                fundefpSynth = this.Fundefp();
+                fundefpSynth = this.Fundefp(semanticParam);
+                semanticParam.inherited.scopeStack.pop();  
 
                 // return if it was a function definition or declaration
                 return new SemanticParam({
@@ -706,12 +721,12 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Fundefp() {
+    private Fundefp(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.OpenBraceToken:
-                this.consume(TokenTypes.OpenBraceToken);
-                this.Stmtlist();
-                this.consume(TokenTypes.CloseBraceToken);
+                this.consume(TokenTypes.OpenBraceToken);                              
+                this.Stmtlist(semanticParam);
+                this.consume(TokenTypes.CloseBraceToken);                
                 return new SemanticParam({funDeclared: true});
             case TokenTypes.SemicolonToken:
                 this.consume(TokenTypes.SemicolonToken);
@@ -722,7 +737,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private G() {
+    private G(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.AmpersandAmpersandToken:
                 return;
@@ -740,24 +755,24 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 return;
                 break;
             case TokenTypes.GreaterThanEqualsToken:
-                this.Oprel();
-                this.Expradd();
-                this.G();
+                this.Oprel(semanticParam);
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.GreaterThanToken:
-                this.Oprel();
-                this.Expradd();
-                this.G();
+                this.Oprel(semanticParam);
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.LessThanEqualsToken:
-                this.Oprel();
-                this.Expradd();
-                this.G();
+                this.Oprel(semanticParam);
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.LessThanToken:
-                this.Oprel();
-                this.Expradd();
-                this.G();
+                this.Oprel(semanticParam);
+                this.Expradd(semanticParam);
+                this.G(semanticParam);
                 break;
             case TokenTypes.SemicolonToken:
                 return;
@@ -768,7 +783,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private H() {
+    private H(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.AmpersandAmpersandToken:
                 return;
@@ -798,14 +813,14 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 return;
                 break;
             case TokenTypes.MinusToken:
-                this.Opadd();
-                this.Exprmul();
-                this.H();
+                this.Opadd(semanticParam);
+                this.Exprmul(semanticParam);
+                this.H(semanticParam);
                 break;
             case TokenTypes.PlusToken:
-                this.Opadd();
-                this.Exprmul();
-                this.H();
+                this.Opadd(semanticParam);
+                this.Exprmul(semanticParam);
+                this.H(semanticParam);
                 break;
             case TokenTypes.SemicolonToken:
                 return;
@@ -816,15 +831,15 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private I() {
+    private I(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.AmpersandAmpersandToken:
                 return;
                 break;
             case TokenTypes.AsteriskToken:
-                this.Opmul();
-                this.Exprunary();
-                this.I();
+                this.Opmul(semanticParam);
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             case TokenTypes.CloseParenToken:
                 return;
@@ -854,9 +869,9 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 return;
                 break;
             case TokenTypes.PercentToken:
-                this.Opmul();
-                this.Exprunary();
-                this.I();
+                this.Opmul(semanticParam);
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             case TokenTypes.PlusToken:
                 return;
@@ -865,9 +880,9 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 return;
                 break;
             case TokenTypes.SlashToken:
-                this.Opmul();
-                this.Exprunary();
-                this.I();
+                this.Opmul(semanticParam);
+                this.Exprunary(semanticParam);
+                this.I(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -875,7 +890,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Lit() {
+    private Lit(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.DoubleLiteral:
                 this.consume(TokenTypes.DoubleLiteral);
@@ -889,7 +904,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Opadd() {
+    private Opadd(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.MinusToken:
                 this.consume(TokenTypes.MinusToken);
@@ -903,7 +918,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Opcomp() {
+    private Opcomp(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.EqualsEqualsToken:
                 this.consume(TokenTypes.EqualsEqualsToken);
@@ -917,7 +932,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Opmul() {
+    private Opmul(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.AsteriskToken:
                 this.consume(TokenTypes.AsteriskToken);
@@ -934,7 +949,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Oprel() {
+    private Oprel(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.GreaterThanEqualsToken:
                 this.consume(TokenTypes.GreaterThanEqualsToken);
@@ -954,7 +969,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Opunary() {
+    private Opunary(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ExclamationToken:
                 this.consume(TokenTypes.ExclamationToken);
@@ -971,20 +986,25 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Paramlist() {
+    private Paramlist(semanticParam: SemanticParam) {
+        let identifier;
         switch (this.currentToken.type) {
             case TokenTypes.CloseParenToken:
                 return;
                 break;
             case TokenTypes.DoubleKeyword:
-                this.Type();
+                this.Type(semanticParam);
+                identifier = JSON.parse(JSON.stringify(this.currentToken));
                 this.consume(TokenTypes.Identifier);
-                this.Paramlistcont();
+                this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1], true));
+                this.Paramlistcont(semanticParam);
                 break;
             case TokenTypes.IntKeyword:
-                this.Type();
+                this.Type(semanticParam);
+                identifier = JSON.parse(JSON.stringify(this.currentToken));
                 this.consume(TokenTypes.Identifier);
-                this.Paramlistcont();
+                this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1], true));
+                this.Paramlistcont(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -992,16 +1012,19 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Paramlistcont() {
+    private Paramlistcont(semanticParam: SemanticParam) {
+        let identifier;
         switch (this.currentToken.type) {
             case TokenTypes.CloseParenToken:
                 return;
                 break;
             case TokenTypes.CommaToken:
                 this.consume(TokenTypes.CommaToken);
-                this.Type();
+                let semanticType = this.Type(semanticParam);
+                identifier = JSON.parse(JSON.stringify(this.currentToken));
                 this.consume(TokenTypes.Identifier);
-                this.Paramlistcont();
+                this.symbolTable.addSymbol(new IdentifierSymbol(identifier, semanticType.synthesized.type, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1], true));
+                this.Paramlistcont(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1009,16 +1032,16 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Program() {
+    private Program(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.DoubleKeyword:
-                this.Deflist();
+                this.Deflist(semanticParam);
                 break;
             case TokenTypes.IntKeyword:
-                this.Deflist();
+                this.Deflist(semanticParam);
                 break;
             case TokenTypes.PesoToken:
-                this.Deflist();
+                this.Deflist(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1026,35 +1049,52 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmt() {
+    private Stmt(semanticParam: SemanticParam) {
+        let identifier;
+
         switch (this.currentToken.type) {
             case TokenTypes.BreakKeyword:
-                this.Stmtbreak();
+                this.Stmtbreak(semanticParam);
                 break;
             case TokenTypes.CloseParenToken:
-                this.Stmtempty();
+                this.Stmtempty(semanticParam);
                 break;
             case TokenTypes.DoubleKeyword:
-                this.Type();
+                this.Type(semanticParam);
+                identifier = JSON.parse(JSON.stringify(this.currentToken));
+                semanticParam.inherited.type = SemanticTypes.Double;
                 this.consume(TokenTypes.Identifier);
-                this.Varinit();
-                this.Vardefcont();
+                this.Varinit(semanticParam);
+                this.Vardefcont(semanticParam);
+                this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1]));
                 break;
             case TokenTypes.Identifier:
+                // Checamos que el identificador que vamos a usar este dentro del scope actual
+                let identifierCheck = this.symbolTable.findSymbol(this.currentToken, semanticParam.inherited.scopeStack);                
+                if(!identifierCheck){
+                    throw new Error(`Error semantico: El identifiador ${this.currentToken.value} no existe en el ambito actual. Linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
+                }
+                if(identifierCheck.scope > semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1]){
+                    throw new Error(`Error semantico: El identifiador ${this.currentToken.value} no existe en el ambito actual. Linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
+                }
+                
                 this.consume(TokenTypes.Identifier);
-                this.Stmtp();
+                this.Stmtp(semanticParam);
                 break;
             case TokenTypes.IntKeyword:
-                this.Type();
+                this.Type(semanticParam);
+                identifier = JSON.parse(JSON.stringify(this.currentToken));
+                semanticParam.inherited.type = SemanticTypes.Integer;
                 this.consume(TokenTypes.Identifier);
-                this.Varinit();
-                this.Vardefcont();
+                this.Varinit(semanticParam);
+                this.Vardefcont(semanticParam);
+                this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1]));
                 break;
             case TokenTypes.ReturnKeyword:
-                this.Stmtreturn();
+                this.Stmtreturn(semanticParam);
                 break;
             case TokenTypes.SemicolonToken:
-                this.Stmtempty();
+                this.Stmtempty(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1062,40 +1102,40 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtall() {
+    private Stmtall(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.BreakKeyword:
-                this.Stmt();
+                this.Stmt(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             case TokenTypes.DoubleKeyword:
-                this.Stmt();
+                this.Stmt(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             case TokenTypes.ForKeyword:
-                this.Flowcontrol();
+                this.Flowcontrol(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.Stmt();
+                this.Stmt(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             case TokenTypes.IfKeyword:
-                this.Flowcontrol();
+                this.Flowcontrol(semanticParam);
                 break;
             case TokenTypes.IntKeyword:
-                this.Stmt();
+                this.Stmt(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             case TokenTypes.ReturnKeyword:
-                this.Stmt();
+                this.Stmt(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             case TokenTypes.SemicolonToken:
-                this.Stmt();
+                this.Stmt(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             case TokenTypes.WhileKeyword:
-                this.Flowcontrol();
+                this.Flowcontrol(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1103,11 +1143,11 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtassign() {
+    private Stmtassign(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.EqualsToken:
                 this.consume(TokenTypes.EqualsToken);
-                this.Expr();
+                this.Expr(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1115,7 +1155,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtbreak() {
+    private Stmtbreak(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.BreakKeyword:
                 this.consume(TokenTypes.BreakKeyword);
@@ -1126,7 +1166,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtdecr() {
+    private Stmtdecr(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.MinusMinusToken:
                 this.consume(TokenTypes.MinusMinusToken);
@@ -1137,7 +1177,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtempty() {
+    private Stmtempty(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.CloseParenToken:
                 return;
@@ -1151,20 +1191,22 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtfor() {
+    private Stmtfor(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ForKeyword:
                 this.consume(TokenTypes.ForKeyword);
                 this.consume(TokenTypes.OpenParenToken);
-                this.Stmt();
+                this.Stmt(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
-                this.Expr();
+                this.Expr(semanticParam);
                 this.consume(TokenTypes.SemicolonToken);
-                this.Stmt();
+                this.Stmt(semanticParam);
                 this.consume(TokenTypes.CloseParenToken);
                 this.consume(TokenTypes.OpenBraceToken);
-                this.Stmtlist();
+                semanticParam.inherited.scopeStack.push(++this.scopeCount);
+                this.Stmtlist(semanticParam);
                 this.consume(TokenTypes.CloseBraceToken);
+                semanticParam.inherited.scopeStack.pop();  
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1172,11 +1214,11 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtfuncall() {
+    private Stmtfuncall(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.OpenParenToken:
                 this.consume(TokenTypes.OpenParenToken);
-                this.Exprlist();
+                this.Exprlist(semanticParam);
                 this.consume(TokenTypes.CloseParenToken);
                 break;
             default:
@@ -1185,16 +1227,18 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtif() {
+    private Stmtif(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.IfKeyword:
                 this.consume(TokenTypes.IfKeyword);
                 this.consume(TokenTypes.OpenParenToken);
-                this.Expr();
+                this.Expr(semanticParam);
                 this.consume(TokenTypes.CloseParenToken);
                 this.consume(TokenTypes.OpenBraceToken);
-                this.Stmtlist();
+                semanticParam.inherited.scopeStack.push(++this.scopeCount);
+                this.Stmtlist(semanticParam);
                 this.consume(TokenTypes.CloseBraceToken);
+                semanticParam.inherited.scopeStack.pop();  
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1202,7 +1246,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtincr() {
+    private Stmtincr(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.PlusPlusToken:
                 this.consume(TokenTypes.PlusPlusToken);
@@ -1213,37 +1257,37 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtlist() {
+    private Stmtlist(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.BreakKeyword:
-                this.B();
+                this.B(semanticParam);
                 break;
             case TokenTypes.CloseBraceToken:
-                this.B();
+                this.B(semanticParam);
                 break;
             case TokenTypes.DoubleKeyword:
-                this.B();
+                this.B(semanticParam);
                 break;
             case TokenTypes.ForKeyword:
-                this.B();
+                this.B(semanticParam);
                 break;
             case TokenTypes.Identifier:
-                this.B();
+                this.B(semanticParam);
                 break;
             case TokenTypes.IfKeyword:
-                this.B();
+                this.B(semanticParam);
                 break;
             case TokenTypes.IntKeyword:
-                this.B();
+                this.B(semanticParam);
                 break;
             case TokenTypes.ReturnKeyword:
-                this.B();
+                this.B(semanticParam);
                 break;
             case TokenTypes.SemicolonToken:
-                this.B();
+                this.B(semanticParam);
                 break;
             case TokenTypes.WhileKeyword:
-                this.B();
+                this.B(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1251,19 +1295,19 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtp() {
+    private Stmtp(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.EqualsToken:
-                this.Stmtassign();
+                this.Stmtassign(semanticParam);
                 break;
             case TokenTypes.MinusMinusToken:
-                this.Stmtdecr();
+                this.Stmtdecr(semanticParam);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Stmtfuncall();
+                this.Stmtfuncall(semanticParam);
                 break;
             case TokenTypes.PlusPlusToken:
-                this.Stmtincr();
+                this.Stmtincr(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1271,11 +1315,11 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtreturn() {
+    private Stmtreturn(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.ReturnKeyword:
                 this.consume(TokenTypes.ReturnKeyword);
-                this.Expr();
+                this.Expr(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1283,16 +1327,18 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Stmtwhile() {
+    private Stmtwhile(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.WhileKeyword:
                 this.consume(TokenTypes.WhileKeyword);
                 this.consume(TokenTypes.OpenParenToken);
-                this.Expr();
+                this.Expr(semanticParam);
                 this.consume(TokenTypes.CloseParenToken);
                 this.consume(TokenTypes.OpenBraceToken);
-                this.Stmtlist();
+                semanticParam.inherited.scopeStack.push(++this.scopeCount);
+                this.Stmtlist(semanticParam);
                 this.consume(TokenTypes.CloseBraceToken);
+                semanticParam.inherited.scopeStack.pop();  
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1300,7 +1346,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Type(): SemanticParam {
+    private Type(semanticParam: SemanticParam): SemanticParam {
         switch (this.currentToken.type) {
             case TokenTypes.DoubleKeyword:
                 this.consume(TokenTypes.DoubleKeyword);
@@ -1314,19 +1360,19 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Vardef() {
+    private Vardef(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.CommaToken:
-                this.Varinit();
-                this.Vardefcont();
+                this.Varinit(semanticParam);
+                this.Vardefcont(semanticParam);
                 break;
             case TokenTypes.EqualsToken:
-                this.Varinit();
-                this.Vardefcont();
+                this.Varinit(semanticParam);
+                this.Vardefcont(semanticParam);
                 break;
             case TokenTypes.SemicolonToken:
-                this.Varinit();
-                this.Vardefcont();
+                this.Varinit(semanticParam);
+                this.Vardefcont(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1334,16 +1380,20 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Vardefcont() {
+    private Vardefcont(semanticParam: SemanticParam) {
+        let identifier;
+
         switch (this.currentToken.type) {
             case TokenTypes.CloseParenToken:
                 return;
                 break;
             case TokenTypes.CommaToken:
                 this.consume(TokenTypes.CommaToken);
+                identifier = JSON.parse(JSON.stringify(this.currentToken));
                 this.consume(TokenTypes.Identifier);
-                this.Varinit();
-                this.Vardefcont();
+                this.Varinit(semanticParam);
+                this.Vardefcont(semanticParam);
+                this.symbolTable.addSymbol(new IdentifierSymbol(identifier, semanticParam.inherited.type, semanticParam.inherited.scopeStack[semanticParam.inherited.scopeStack.length - 1]));
                 break;
             case TokenTypes.SemicolonToken:
                 return;
@@ -1354,19 +1404,19 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Varinit() {
+    private Varinit(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.CloseParenToken:
-                this.Varinitp();
+                this.Varinitp(semanticParam);
                 break;
             case TokenTypes.CommaToken:
-                this.Varinitp();
+                this.Varinitp(semanticParam);
                 break;
             case TokenTypes.EqualsToken:
-                this.Varinitp();
+                this.Varinitp(semanticParam);
                 break;
             case TokenTypes.SemicolonToken:
-                this.Varinitp();
+                this.Varinitp(semanticParam);
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -1374,7 +1424,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     }
     
     
-    private Varinitp() {
+    private Varinitp(semanticParam: SemanticParam) {
         switch (this.currentToken.type) {
             case TokenTypes.CloseParenToken:
                 return;
@@ -1384,7 +1434,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 break;
             case TokenTypes.EqualsToken:
                 this.consume(TokenTypes.EqualsToken);
-                this.Expr();
+                this.Expr(semanticParam);
                 break;
             case TokenTypes.SemicolonToken:
                 return;
