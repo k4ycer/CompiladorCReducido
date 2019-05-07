@@ -58,6 +58,7 @@ export class AppComponent {
 		try{
 			this.syntacticAnalyzer.analyze();
 			console.log("Sintacticamente valido");
+			console.log("Tabla de simbolos", this.syntacticAnalyzer.symbolTable);
 		}catch(e){
 			console.log("Error en analizador sintáctico: " + e.message );
 			return;

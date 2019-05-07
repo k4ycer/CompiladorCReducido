@@ -3,6 +3,7 @@ import { SemanticTypes } from './../constants/SemanticTypes';
 import { SemanticParam } from './SemanticParam';
 import { TokenTypes } from '../constants/TokenTypes';
 import { SyntacticAnalyzer, Token } from 'k4ycer-syntactic-analyzer';
+import { IdentifierSymbol } from './Symbol';
 
 export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     symbolTable: SymbolTable
@@ -81,19 +82,64 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     
     
     private Def() {
+        let identifier;
+        let defpSynth: SemanticParam;
         switch (this.currentToken.type) {            
-            case TokenTypes.DoubleKeyword:
-                // Semantico
-                
-
+            case TokenTypes.DoubleKeyword:            
                 this.Type();
+                identifier = JSON.parse(JSON.stringify(this.currentToken));
                 this.consume(TokenTypes.Identifier);
-                this.Defp();
+                defpSynth = this.Defp();                
+
+                // Semantico
+                // Si es una funcion entonces en caso de ser definida la agreamos a la tabla y en caso de ser declarada
+                // solo checamos que el tipo corresponda a la de la tabla de simbolos
+                // en caso de ser una variable solo la agregamos
+                if(defpSynth){
+                    if(defpSynth.synthesized.funDefined){
+                        this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double, null, true));
+                    }else if(defpSynth.synthesized.funDeclared){
+                        let declaredSymbol = this.symbolTable.getSymbol(identifier, null);
+                        if(declaredSymbol){
+                            if(declaredSymbol.semanticType != SemanticTypes.Double){
+                                throw new Error(`La declaracion de la funcion ${identifier.value} no coincide con su definicion`);
+                            }
+                        }else{
+                            this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double, null, false));
+                        }
+                    }
+                }else{
+                    this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Double));
+                }            
+                // Fin Semantico
                 break;
             case TokenTypes.IntKeyword:
-                this.Type();
+                this.Type();     
+                identifier = JSON.parse(JSON.stringify(this.currentToken));           
                 this.consume(TokenTypes.Identifier);
-                this.Defp();
+                defpSynth = this.Defp();                
+
+                // Semantico
+                // Si es una funcion entonces en caso de ser definida la agreamos a la tabla y en caso de ser declarada
+                // solo checamos que el tipo corresponda a la de la tabla de simbolos
+                // en caso de ser una variable solo la agregamos
+                if(defpSynth){
+                    if(defpSynth.synthesized.funDefined){
+                        this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer, null, true));
+                    }else if(defpSynth.synthesized.funDeclared){
+                        let declaredSymbol = this.symbolTable.getSymbol(identifier, null);
+                        if(declaredSymbol){
+                            if(declaredSymbol.semanticType != SemanticTypes.Integer){
+                                throw new Error(`La declaracion de la funcion ${identifier.value} no coincide con su definicion`);
+                            }
+                        }else{
+                            this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer, null, false));
+                        }
+                    }
+                }else{
+                    this.symbolTable.addSymbol(new IdentifierSymbol(identifier, SemanticTypes.Integer));
+                }            
+                // Fin Semantico
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -125,8 +171,7 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 this.consume(TokenTypes.SemicolonToken);
                 break;
             case TokenTypes.OpenParenToken:
-                this.Fundef();
-                break;
+                return this.Fundef();
             case TokenTypes.EqualsToken:
                 this.Vardef();
                 this.consume(TokenTypes.SemicolonToken);
@@ -641,12 +686,19 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
     
     
     private Fundef() {
+        let fundefpSynth: SemanticParam;
         switch (this.currentToken.type) {
             case TokenTypes.OpenParenToken:
                 this.consume(TokenTypes.OpenParenToken);
                 this.Paramlist();
                 this.consume(TokenTypes.CloseParenToken);
-                this.Fundefp();
+                fundefpSynth = this.Fundefp();
+
+                // return if it was a function definition or declaration
+                return new SemanticParam({
+                    funDefined: fundefpSynth.synthesized.funDefined,
+                    funDeclared: fundefpSynth.synthesized.funDeclared,
+                });
                 break;
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
@@ -660,10 +712,10 @@ export class SyntacticAnalyzerCR extends SyntacticAnalyzer{
                 this.consume(TokenTypes.OpenBraceToken);
                 this.Stmtlist();
                 this.consume(TokenTypes.CloseBraceToken);
-                break;
+                return new SemanticParam({funDeclared: true});
             case TokenTypes.SemicolonToken:
                 this.consume(TokenTypes.SemicolonToken);
-                break;
+                return new SemanticParam({funDefined: true});
             default:
                 throw new Error(`Token "${this.currentToken.value}" inválido en la linea ${this.currentToken.line}, columna ${this.currentToken.column}`);
         }
