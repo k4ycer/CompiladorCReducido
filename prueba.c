@@ -1,7 +1,7 @@
 double m = 3.5, aux = 0.0;
 double suma(double i, int j);
-
-int main(void){
+int main()
+{
     int i;
     if (i == 0) {
         int j;
@@ -13,7 +13,6 @@ int main(void){
     }
     return suma(suma(aux,i),j);
 }
-
 double suma(double i, int j){
     return i + j;
 }
